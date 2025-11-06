@@ -19,10 +19,14 @@ if [ "$choice" = "2" ]; then
     read -p "请选择卸载方式 (1/2): " uninstall_choice
 
     if [ "$uninstall_choice" = "1" ]; then
+        read -p "请输入 xboard 项目目录路径 (默认: /root/xboard): " XBOARD_DIR
+        if [ -z "$XBOARD_DIR" ]; then
+            XBOARD_DIR="/root/xboard"
+        fi
         echo ">>> 开始卸载 Xboard (保留 Docker)..."
-        cd ~/xboard || true
+        cd "$XBOARD_DIR" || true
         docker compose down -v || true
-        rm -rf ~/xboard
+        rm -rf "$XBOARD_DIR"
         echo ">>> 已卸载 Xboard，Docker 环境保留。"
         exit 0
     fi
@@ -37,7 +41,7 @@ if [ "$choice" = "2" ]; then
             docker volume rm $(docker volume ls -q) || true
             docker network rm $(docker network ls -q) || true
         fi
-        rm -rf ~/xboard
+        rm -rf /root/xboard
         apt-get remove --purge -y docker docker-engine docker.io containerd runc docker-compose-plugin
         apt-get autoremove -y
         apt-get autoclean -y
@@ -55,11 +59,24 @@ if [ "$choice" = "3" ]; then
     echo "   2) 恢复数据库"
     read -p "请选择操作 (1/2): " db_choice
 
-    CONTAINER_NAME=$(docker compose ps -q web | xargs docker inspect --format '{{.Name}}' | sed 's/^\///')
-    if [ -z "$CONTAINER_NAME" ]; then
+    read -p "请输入 xboard 项目目录路径 (默认: /root/xboard): " XBOARD_DIR
+    if [ -z "$XBOARD_DIR" ]; then
+        XBOARD_DIR="/root/xboard"
+    fi
+    if [ ! -d "$XBOARD_DIR" ]; then
+        echo ">>> 提供的目录无效，未找到 $XBOARD_DIR"
+        exit 1
+    fi
+
+    cd "$XBOARD_DIR"
+
+    CONTAINER_ID=$(docker compose ps -q web)
+    if [ -z "$CONTAINER_ID" ]; then
         echo ">>> 未检测到 web 容器，请确认服务已启动"
         exit 1
     fi
+
+    CONTAINER_NAME=$(docker inspect --format '{{.Name}}' "$CONTAINER_ID" | sed 's/^\///')
 
     DB_PATH=$(docker exec -i "$CONTAINER_NAME" sh -c "grep DB_DATABASE /www/.env | cut -d '=' -f2" || true)
     if [ -z "$DB_PATH" ]; then
@@ -118,20 +135,25 @@ if [ "$choice" = "1" ]; then
         echo ">>> 已检测到 Docker Compose 插件，跳过安装。"
     fi
 
+    read -p "请输入 xboard 项目目录路径 (默认: /root/xboard): " XBOARD_DIR
+    if [ -z "$XBOARD_DIR" ]; then
+        XBOARD_DIR="/root/xboard"
+    fi
+
     echo ">>> 克隆 Xboard 项目 (compose 分支)..."
-    if [ ! -d "./xboard" ]; then
-        git clone -b compose --depth 1 https://github.com/cedar2025/Xboard ./xboard
+    if [ ! -d "$XBOARD_DIR" ]; then
+        git clone -b compose --depth 1 https://github.com/cedar2025/Xboard "$XBOARD_DIR"
     else
         echo ">>> 已存在 xboard 目录，跳过克隆。"
     fi
 
-    cd xboard
+    cd "$XBOARD_DIR"
 
     echo ">>> 执行安装命令..."
     docker compose run -it --rm \
         -e ENABLE_SQLITE=true \
         -e ENABLE_REDIS=true \
-        -e ADMIN_ACCOUNT=YEZHU@YEZHU.COM \
+        -e ADMIN_ACCOUNT=admin@demo.com \
         web php artisan xboard:install
 
     echo ">>> 启动服务..."
