@@ -131,7 +131,7 @@ if [ "$choice" = "1" ]; then
     docker compose run -it --rm \
         -e ENABLE_SQLITE=true \
         -e ENABLE_REDIS=true \
-        -e ADMIN_ACCOUNT=admin@demo.com \
+        -e ADMIN_ACCOUNT=YEZHU@YEZHU.COM \
         web php artisan xboard:install
 
     echo ">>> 启动服务..."
